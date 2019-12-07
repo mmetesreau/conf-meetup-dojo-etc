@@ -3174,3 +3174,264 @@ module Day6=
 
     calc' 0 transfers "SAN" "YOU" 
 
+// --- Day 7: Amplification Circuit ---
+
+module Day7=
+    open System.Collections.Generic
+
+    type Opcodes = 
+            | Add of int * int * int
+            | Multiply of int * int * int
+            | Print of int
+            | Write of int 
+            | JumpIfTrue of int * int
+            | JumpIfFalse of int * int
+            | LessThan of int * int * int
+            | Equals of int * int * int
+            | Halt
+
+    let offset = function
+        | Add _ ->  4
+        | Multiply _ -> 4
+        | Write _ ->  2
+        | Print _ ->  2
+        | JumpIfTrue _ -> 3
+        | JumpIfFalse _ -> 3
+        | LessThan _ -> 4
+        | Equals _ -> 4
+        | Halt -> 0
+
+    type Modes = Immediate | Position
+
+    let mode (mode: char option) = 
+        match mode with
+        | Some '1' -> Immediate
+        | _ -> Position
+
+    let parameter (memory: int array) (mode: Modes) (parameterPointer: int) =
+        let parameter = memory.[parameterPointer]
+        match mode with
+        | Position -> memory.[parameter]
+        | _ -> parameter
+
+    let instruction (entry: int) =
+        let instruction = string entry 
+        if instruction.Length <= 2 then
+            Seq.empty , int instruction
+        else
+            instruction.Substring(0,instruction.Length - 2) |> Seq.rev, instruction.Substring(instruction.Length - 2) |> int
+
+    let (|AddInstruction|_|) (parameterMode, opcode) =
+        if opcode = 1 then
+             Some (parameterMode |> Seq.tryItem 0 |> mode, parameterMode |> Seq.tryItem 1 |> mode, Immediate)
+        else None     
+
+    let (|MultiplyInstruction|_|) (parameterMode, opcode) =
+        if opcode = 2 then
+             Some (parameterMode |> Seq.tryItem 0 |> mode, parameterMode |> Seq.tryItem 1 |> mode, Immediate)
+        else None            
+
+    let (|WriteInstruction|_|) (_, opcode) =
+        if opcode = 3 then
+             Some Immediate
+        else None 
+
+    let (|PrintInstruction|_|) (parameterMode, opcode) =
+        if opcode = 4 then
+             Some  (parameterMode |> Seq.tryItem 0 |> mode)
+        else None 
+
+    let (|JumpIfTrueInstruction|_|) (parameterMode, opcode) =
+        if opcode = 5 then
+             Some (parameterMode |> Seq.tryItem 0 |> mode, parameterMode |> Seq.tryItem 1 |> mode)
+        else None 
+
+    let (|JumpIfFalseInstruction|_|) (parameterMode, opcode) =
+        if opcode = 6 then
+             Some (parameterMode |> Seq.tryItem 0 |> mode, parameterMode |> Seq.tryItem 1 |> mode)
+        else None 
+
+    let (|LessThanInstruction|_|) (parameterMode, opcode) =
+        if opcode = 7 then
+             Some (parameterMode |> Seq.tryItem 0 |> mode, parameterMode |> Seq.tryItem 1 |> mode, Immediate)
+        else None 
+
+    let (|EqualsInstruction|_|) (parameterMode, opcode) =
+        if opcode = 8 then
+             Some (parameterMode |> Seq.tryItem 0 |> mode, parameterMode |> Seq.tryItem 1 |> mode, Immediate)
+        else None
+
+    let (|HaltInstruction|_|) (_, opcode) =
+        if opcode = 99 then
+             Some true
+        else None
+
+    let read (memory: int array)  (instructionPointer: int) =
+        match memory.[instructionPointer] |> instruction  with
+        | AddInstruction (pm1, pm2, pm3) ->
+            (parameter memory pm1 (instructionPointer+1), parameter memory pm2 (instructionPointer+2), parameter memory pm3 (instructionPointer+3)) 
+                |> Add
+        | MultiplyInstruction (pm1, pm2, pm3) ->
+            (parameter memory pm1 (instructionPointer+1), parameter memory pm2 (instructionPointer+2), parameter memory pm3 (instructionPointer+3)) 
+                |> Multiply
+        | WriteInstruction pm1 ->
+            parameter memory pm1 (instructionPointer+1) 
+                |> Write
+        | PrintInstruction pm1 ->
+            parameter memory pm1 (instructionPointer+1) 
+                |> Print
+         | JumpIfTrueInstruction (pm1, pm2) ->
+            (parameter memory pm1 (instructionPointer+1), parameter memory pm2 (instructionPointer+2)) 
+                |> JumpIfTrue
+         | JumpIfFalseInstruction (pm1, pm2) ->
+            (parameter memory pm1 (instructionPointer+1), parameter memory pm2 (instructionPointer+2)) 
+                |> JumpIfFalse
+         | LessThanInstruction (pm1, pm2, pm3) ->
+            (parameter memory pm1 (instructionPointer+1), parameter memory pm2 (instructionPointer+2), parameter memory pm3 (instructionPointer+3)) 
+                |> LessThan
+         | EqualsInstruction (pm1, pm2, pm3) ->
+            (parameter memory pm1 (instructionPointer+1), parameter memory pm2 (instructionPointer+2), parameter memory pm3 (instructionPointer+3)) 
+                |> Equals
+        | HaltInstruction _ ->
+            Halt
+        | cmd -> failwith <| sprintf "oups %A" cmd
+
+    let execute  (reader: unit -> string) (memory: int array) =
+        let rec process' (memory: int array) (output: string) (instructionPointer: int) =
+            let instruction = read memory instructionPointer
+            let step = offset instruction
+
+            match instruction with
+            | Halt -> output
+            | Add (i1, i2, dest) -> 
+                memory.[dest] <- i1 + i2
+                instructionPointer + step |> process' memory output
+            | Multiply (i1, i2, dest) -> 
+                memory.[dest] <- i1 * i2
+                instructionPointer + step |> process' memory output
+            | Print i1 -> 
+                let output' = sprintf "%s%i" output i1
+                instructionPointer + step |> process' memory output'
+            | Write i1 -> 
+                memory.[i1] <- reader() |> int
+                instructionPointer + step |> process' memory output
+            | JumpIfTrue (i1, i2) -> 
+                if i1 = 0 then
+                    instructionPointer + step |> process' memory output
+                else
+                    i2 |> process' memory output
+            | JumpIfFalse (i1, i2) -> 
+                if i1 = 0 then
+                    i2 |> process' memory output
+                else
+                    instructionPointer + step |> process' memory output
+            | LessThan  (i1, i2, dest) -> 
+                memory.[dest] <- if i1 < i2 then 1 else 0
+                instructionPointer + step |> process' memory output
+            | Equals (i1, i2, dest) -> 
+                memory.[dest] <- if i1 = i2 then 1 else 0
+                instructionPointer + step |> process' memory output                                         
+
+        process' memory "" 0
+
+    let load (program: string) =
+        program
+            |> split ','
+            |> Array.map int
+
+    let program = "3,8,1001,8,10,8,105,1,0,0,21,34,47,72,93,110,191,272,353,434,99999,3,9,102,3,9,9,1001,9,3,9,4,9,99,3,9,102,4,9,9,1001,9,4,9,4,9,99,3,9,101,3,9,9,1002,9,3,9,1001,9,2,9,1002,9,2,9,101,4,9,9,4,9,99,3,9,1002,9,3,9,101,5,9,9,102,4,9,9,1001,9,4,9,4,9,99,3,9,101,3,9,9,102,4,9,9,1001,9,3,9,4,9,99,3,9,101,2,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,101,1,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1002,9,2,9,4,9,99,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,101,1,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,2,9,9,4,9,99,3,9,1001,9,1,9,4,9,3,9,1001,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,1,9,4,9,3,9,102,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,2,9,4,9,99,3,9,1002,9,2,9,4,9,3,9,1001,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,99,3,9,101,1,9,9,4,9,3,9,101,1,9,9,4,9,3,9,101,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,101,1,9,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,1,9,9,4,9,3,9,1002,9,2,9,4,9,99"
+
+    let inMemoryReader buffer =
+        let queue = new Queue<string>(buffer |> Seq.ofList)
+        let read () =
+            queue.Dequeue()
+        read 
+
+    let amplifiers (program: string) (signal: string) (setting: string) =
+        let reader = inMemoryReader [setting;signal]
+        program |> load |> execute reader
+
+    seq {
+        for i1 in [0..4] do
+            for i2 in [0..4] do
+                for i3 in [0..4] do
+                    for i4 in [0..4] do
+                        for i5 in [0..4] do
+                            sprintf "%i%i%i%i%i" i1 i2 i3 i4 i5                                    
+    } 
+        |> Seq.filter (fun str -> str |> Seq.groupBy id |> Seq.length = 5)
+        |> Seq.map (Seq.map string >> Seq.fold (amplifiers program) "0")
+        |> Seq.maxBy int
+
+    // --- Part Two ---
+
+    let execute' (reader: unit -> string)  (instructionPointer: int) (memory: int array) =
+        let rec process' (memory: int array) (instructionPointer: int) =
+            let instruction = read memory instructionPointer
+            let step = offset instruction
+
+            match instruction with
+            | Halt -> None
+            | Add (i1, i2, dest) -> 
+                memory.[dest] <- i1 + i2
+                instructionPointer + step |> process' memory
+            | Multiply (i1, i2, dest) -> 
+                memory.[dest] <- i1 * i2
+                instructionPointer + step |> process' memory
+            | Print i1 -> 
+                Some (string i1, instructionPointer + step, memory)
+            | Write i1 -> 
+                memory.[i1] <- reader() |> int
+                instructionPointer + step |> process' memory
+            | JumpIfTrue (i1, i2) -> 
+                if i1 = 0 then
+                    instructionPointer + step |> process' memory
+                else
+                    i2 |> process' memory
+            | JumpIfFalse (i1, i2) -> 
+                if i1 = 0 then
+                    i2 |> process' memory
+                else
+                    instructionPointer + step |> process' memory
+            | LessThan  (i1, i2, dest) -> 
+                memory.[dest] <- if i1 < i2 then 1 else 0
+                instructionPointer + step |> process' memory
+            | Equals (i1, i2, dest) -> 
+                memory.[dest] <- if i1 = i2 then 1 else 0
+                instructionPointer + step |> process' memory                                         
+
+        process' memory instructionPointer
+
+    let rec feedbackLoop programs signal settings =
+        let reader, settings' = 
+            match settings with
+            | setting::settings ->
+                inMemoryReader [setting;signal], settings
+            | [] -> inMemoryReader [signal], []   
+        
+        match programs with
+        | (pointer, memory)::programs ->
+                match memory |> execute' reader pointer with
+                | Some (signal', pointer', memory') -> 
+                    feedbackLoop (programs @ [pointer', memory']) signal' settings'
+                | None -> 
+                    feedbackLoop programs signal settings'
+        | [] -> signal 
+
+    let settings =
+        seq {
+            for i1 in [5..9] do
+                for i2 in [5..9] do
+                    for i3 in [5..9] do
+                        for i4 in [5..9] do
+                            for i5 in [5..9] do
+                                sprintf "%i%i%i%i%i" i1 i2 i3 i4 i5                                    
+        } 
+        |> Seq.filter (fun str -> str |> Seq.groupBy id |> Seq.length = 5)
+
+    let amplifiers'() = [0, load  program;0, load  program;0, load  program;0, load  program;0, load  program]
+           
+    settings
+        |> Seq.map (List.ofSeq >> List.map string >> feedbackLoop (amplifiers'()) "0")
+        |> Seq.maxBy int
+
