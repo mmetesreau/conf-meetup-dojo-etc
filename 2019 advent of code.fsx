@@ -637,3 +637,73 @@ module MetesreauDay9 =
     input
         |> loadProgram 
         |> executeProgramUntilHalted (createInputsFrom ["2"])
+
+module MetesreauDay10 = 
+    let angle opp adj = 
+        float opp / float adj
+
+    let distance a b =
+        abs (a - b)
+
+    let angleWithOrientation x y x' y' =
+        let angle = atan <| angle (distance y y') (distance x x')
+
+        if x' = x && y' < y then 0.
+        elif x' > x &&  y' < y then angle
+        elif x' > x && y' = y then 90.
+        elif x' > x &&  y' > y then 90. + angle
+        elif x' = x && y' > y then 180.
+        elif x' < x && y' > y then 180. + angle
+        elif x' < x && y' = y then 270.
+        else 270. + angle
+
+    let input = [
+        "#.#.###.#.#....#..##.#...."
+        ".....#..#..#..#.#..#.....#"
+        ".##.##.##.##.##..#...#...#"
+        "#.#...#.#####...###.#.#.#."
+        ".#####.###.#.#.####.#####."
+        "#.#.#.##.#.##...####.#.##."
+        "##....###..#.#..#..#..###."
+        "..##....#.#...##.#.#...###"
+        "#.....#.#######..##.##.#.."
+        "#.###.#..###.#.#..##.....#"
+        "##.#.#.##.#......#####..##"
+        "#..##.#.##..###.##.###..##"
+        "#..#.###...#.#...#..#.##.#"
+        ".#..#.#....###.#.#..##.#.#"
+        "#.##.#####..###...#.###.##"
+        "#...##..#..##.##.#.##..###"
+        "#.#.###.###.....####.##..#"
+        "######....#.##....###.#..#"
+        "..##.#.####.....###..##.#."
+        "#..#..#...#.####..######.."
+        "#####.##...#.#....#....#.#"
+        ".#####.##.#.#####..##.#..."
+        "#..##..##.#.##.##.####..##"
+        ".##..####..#..####.#######"
+        "#.#..#.##.#.######....##.."
+        ".#.##.##.####......#.##.##"
+    ] 
+
+    let asteroids = 
+        input 
+            |> List.mapi (fun y row -> row |> Seq.mapi (fun x object -> object, (x, y)) |> List.ofSeq) 
+            |> List.collect (fun row -> row |> List.filter (fst >> ((=)'#')))
+            |> List.map snd
+
+    // --- Part One ---
+
+    let monitoringStation =
+        asteroids
+            |> List.map(fun (x,y) -> (x,y), asteroids 
+                                                    |> List.filter ((<>)(x,y))
+                                                    |> List.map (fun (x', y') -> (x', y'), angleWithOrientation x y x' y')
+                                                    |> List.distinctBy snd)
+            |> List.maxBy (fun (_, asteroidsDetected) -> asteroidsDetected.Length)
+
+    monitoringStation        
+        |> snd
+        |> List.length    
+
+    // --- Part Two ---    
