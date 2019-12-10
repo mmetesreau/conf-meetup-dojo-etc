@@ -707,3 +707,13 @@ module MetesreauDay10 =
         |> List.length    
 
     // --- Part Two ---    
+
+    let x, y = 
+        monitoringStation        
+        |> snd
+        |> List.sortBy snd 
+        |> List.item 199
+        |> fst
+
+    x * 100 + y    
+
