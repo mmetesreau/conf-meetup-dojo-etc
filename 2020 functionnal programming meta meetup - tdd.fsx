@@ -105,15 +105,20 @@ module App =
         | Ok f', Error e -> Error e
         | Error e, Error e' -> Error (sprintf "%s, %s" e e') 
 
+    let withError error x =
+        match x with 
+        | Some x -> Ok x
+        | _ -> Error error    
+
     module Domain = 
         open System
 
         type NotEmptyString = NotEmptyString of string   
 
-        let notEmptyStringFromString str error = 
+        let notEmptyStringFromString str = 
             if String.IsNullOrEmpty(str) |> not then
-                NotEmptyString str |> Ok
-            else Error error
+                NotEmptyString str |> Some
+            else None
 
         type TaskId = TaskId of int
         type UserId = UserId of int
@@ -164,25 +169,30 @@ module App =
         let tryCreate (title: string) (description: string)  : Result<Task, string> =
             TodoTask <!> 
                 (create 
-                    <!> notEmptyStringFromString title "Title can not be empty"
-                    <*> notEmptyStringFromString description "Description can not be empty")
+                    <!> (notEmptyStringFromString title |> withError "Title can not be empty")
+                    <*> (notEmptyStringFromString description |> withError "Description can not be empty"))
 
     module Db =
         open Domain
 
         let mutable data = Map.empty
 
-        let newTaskId () = data.Count + 1 |> TaskId
-
         let tryGet (id: TaskId) : Result<Task, string> =
             match data |> Map.tryFind id with
             | Some item -> Ok item
             | _ -> Error (sprintf "%A does not exist" id)
 
-        let trySave (id: TaskId) (task: Task) : Result<TaskId * Task, string> =
+        let tryUpdate (id: TaskId) (task: Task) : Result<TaskId * Task, string> =
             data <- Map.add id task data 
 
             Ok (id, task)  
+
+        let tryInsert (task: Task) : Result<TaskId * Task, string> =
+            let newId = Map.count data + 1 |> TaskId
+
+            data <- Map.add newId task data 
+
+            Ok (newId, task)         
     
     module Handlers =
         open Domain
@@ -191,29 +201,49 @@ module App =
         let startHandler taskId userId = 
             tryGet taskId 
                 >>= tryStart userId 
-                >>= trySave taskId
+                >>= tryUpdate taskId
 
         let closeHandler taskId userId = 
             tryGet taskId 
                 >>= tryClose userId 
-                >>= trySave taskId
+                >>= tryUpdate taskId
 
         let createHandler title description = 
             tryCreate title description
-                >>= trySave (newTaskId())
+                >>= tryInsert
 
 open App.Domain
 open App.Handlers
 
-("", "d1") ||> createHandler 
+("", "d1") 
+    ||> createHandler = Error "Title can not be empty"
 
-("t1", "") ||> createHandler 
+("t1", "") 
+    ||> createHandler = Error "Description can not be empty"
 
-("t1", "d1") ||> createHandler 
+("t1", "d1") 
+    ||> createHandler = 
+            Ok (TaskId 1, TodoTask { 
+                            Info = { 
+                                    Title = NotEmptyString "t1" 
+                                    Description = NotEmptyString "d1" } })
 
-(TaskId 1, UserId 1) ||> startHandler 
+(TaskId 1, UserId 1) 
+    ||> startHandler = 
+            Ok (TaskId 1, InProgressTask { 
+                            Info = { 
+                                        Title = NotEmptyString "t1"
+                                        Description = NotEmptyString "d1" }
+                            DevId = UserId 1 })
 
-(TaskId 2, UserId 1) ||> closeHandler 
+(TaskId 1, UserId 1) 
+    ||> closeHandler  = 
+            Ok (TaskId 1, DoneTask { 
+                            Info = { 
+                                        Title = NotEmptyString "t1"
+                                        Description = NotEmptyString "d1" } 
+                            DevId = UserId 1
+                            QaId = UserId 1 })
 
 
 
