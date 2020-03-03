@@ -94,31 +94,28 @@ module DomainAttempt3' =
         { Info = task.Info; DevId = task.DevId ;QaId = qaId }
 
 module App =
-    let (>>=) a b = Result.bind b a
+    module Result =
+        let (>>=) a b = Result.bind b a
 
-    let (<!>) f x = Result.map f x
+        let (<!>) f x = Result.map f x
 
-    let (<*>) f x =
-        match f, x with
-        | Ok f', Ok x' -> Ok (f' x')
-        | Error e, Ok x' -> Error e
-        | Ok f', Error e -> Error e
-        | Error e, Error e' -> Error (sprintf "%s, %s" e e') 
-
-    let withError error x =
-        match x with 
-        | Some x -> Ok x
-        | _ -> Error error    
+        let (<*>) f x =
+            match f, x with
+            | Ok f', Ok x' -> Ok (f' x')
+            | Error e, Ok x' -> Error e
+            | Ok f', Error e -> Error e
+            | Error e, Error e' -> Error (sprintf "%s, %s" e e') 
 
     module Domain = 
+        open Result
         open System
 
         type NotEmptyString = NotEmptyString of string   
 
-        let notEmptyStringFromString str = 
+        let notEmptyStringFromString error str = 
             if String.IsNullOrEmpty(str) |> not then
-                NotEmptyString str |> Some
-            else None
+                NotEmptyString str |> Ok
+            else Error error
 
         type TaskId = TaskId of int
         type UserId = UserId of int
@@ -169,10 +166,10 @@ module App =
         let tryCreate (title: string) (description: string)  : Result<Task, string> =
             TodoTask <!> 
                 (create 
-                    <!> (notEmptyStringFromString title |> withError "Title can not be empty")
-                    <*> (notEmptyStringFromString description |> withError "Description can not be empty"))
+                    <!> (notEmptyStringFromString "Title can not be empty" title)
+                    <*> (notEmptyStringFromString  "Description can not be empty" description))
 
-    module Db =
+    module DummyDb =
         open Domain
 
         let mutable data = Map.empty
@@ -196,7 +193,8 @@ module App =
     
     module Handlers =
         open Domain
-        open Db
+        open DummyDb
+        open Result
 
         let startHandler taskId userId = 
             tryGet taskId 
@@ -212,38 +210,51 @@ module App =
             tryCreate title description
                 >>= tryInsert
 
+    module Tests =
+        let shouldBe (expected: 'a) (actual: 'a)   =
+            if actual = expected then ()
+            else 
+                failwith (sprintf "\n expected \n %A \n but got \n %A" expected actual)
+
+        let shouldBeError (expected: 'b) (actual: Result<'a, 'b>) =
+            let expectedError : Result<'a, 'b> = Error expected
+
+            actual 
+                |> shouldBe expectedError
+
+        let shouldBeOk (expected: 'a) (actual: Result<'a, 'b>) =
+            let expectedOk : Result<'a, 'b> = Ok expected
+
+            actual 
+                |> shouldBe expectedOk
+
 open App.Domain
 open App.Handlers
+open App.Tests
+
+("", "d1")
+    ||>createHandler  
+    |> shouldBeError "Title can not be empty"
 
 ("", "d1") 
-    ||> createHandler = Error "Title can not be empty"
+    ||> createHandler
+    |> shouldBeError "Title can not be empty"
 
 ("t1", "") 
-    ||> createHandler = Error "Description can not be empty"
+    ||> createHandler
+    |> shouldBeError "Description can not be empty"
 
 ("t1", "d1") 
-    ||> createHandler = 
-            Ok (TaskId 1, TodoTask { 
-                            Info = { 
-                                    Title = NotEmptyString "t1" 
-                                    Description = NotEmptyString "d1" } })
+    ||> createHandler
+    |> shouldBeOk (TaskId 1, TodoTask { Info = { Title = NotEmptyString "t1"; Description = NotEmptyString "d1" } })
 
 (TaskId 1, UserId 1) 
-    ||> startHandler = 
-            Ok (TaskId 1, InProgressTask { 
-                            Info = { 
-                                        Title = NotEmptyString "t1"
-                                        Description = NotEmptyString "d1" }
-                            DevId = UserId 1 })
+    ||> startHandler
+    |> shouldBeOk (TaskId 1, InProgressTask { Info = { Title = NotEmptyString "t1"; Description = NotEmptyString "d1" }; DevId = UserId 1 })
 
 (TaskId 1, UserId 1) 
-    ||> closeHandler  = 
-            Ok (TaskId 1, DoneTask { 
-                            Info = { 
-                                        Title = NotEmptyString "t1"
-                                        Description = NotEmptyString "d1" } 
-                            DevId = UserId 1
-                            QaId = UserId 1 })
+    ||> closeHandler
+    |> shouldBeOk (TaskId 1, DoneTask { Info = { Title = NotEmptyString "t1"; Description = NotEmptyString "d1" }; DevId = UserId 1; QaId = UserId 1 })
 
 
 
