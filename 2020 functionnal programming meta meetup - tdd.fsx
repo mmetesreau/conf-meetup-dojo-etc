@@ -233,7 +233,7 @@ open App.Handlers
 open App.Tests
 
 ("", "d1")
-    ||>createHandler  
+    ||> createHandler  
     |> shouldBeError "Title can not be empty"
 
 ("", "d1") 
