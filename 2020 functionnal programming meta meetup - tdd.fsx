@@ -5,15 +5,15 @@ module DomainAttempt1 =
         Title: string
         Description: string
         Status: StatusInfo
-        DevId: int
-        QaId: int
+        AssignedTo: int
+        ClosedBy: int
     }
-
+        
 module DomainAttempt2 = 
     type StatusInfo = 
         | Todo 
-        | InProgress of devId: int
-        | Done of devId: int * qaId: int
+        | InProgress of assignedTo: int
+        | Done of assignedTo: int * closedBy: int
 
     type Task = {
         Title: string
@@ -21,14 +21,14 @@ module DomainAttempt2 =
         Status: StatusInfo
     }
 
-    let start (devId: int) (task: Task) =
+    let start (assignedTo: int) (task: Task) =
         match task.Status with
-        | Todo -> { task with Status = InProgress devId}
+        | Todo -> { task with Status = InProgress assignedTo}
         | _ -> failwith "..."
 
-    let close (qaId: int) (task: Task) =
+    let close (closedBy: int) (task: Task) =
         match task.Status with
-        | InProgress devId -> { task with Status = Done (devId, qaId)}
+        | InProgress assignedTo -> { task with Status = Done (assignedTo, closedBy)}
         | _ -> failwith "..."
 
 module DomainAttempt3 = 
@@ -46,19 +46,19 @@ module DomainAttempt3 =
     }
     and InProgressTask = {
         Info: TaskInfo 
-        DevId: int
+        AssignedTo: int
     }
     and DoneTask = {
         Info: TaskInfo
-        DevId: int
-        QaId: int
+        AssignedTo: int
+        ClosedBy: int
     }
 
-    let start (devId: int) (task: TodoTask) =
-        { Info = task.Info; DevId = devId }
+    let start (assignedTo: int) (task: TodoTask) =
+        { Info = task.Info; AssignedTo = assignedTo }
 
-    let close (qaId: int) (task: InProgressTask) =
-        { Info = task.Info; DevId = task.DevId ;QaId = qaId }
+    let close (closedBy: int) (task: InProgressTask) =
+        { Info = task.Info; AssignedTo = task.AssignedTo; ClosedBy = closedBy }
 
 module DomainAttempt3' =
     type NotEmptyString = NotEmptyString of string   
@@ -79,19 +79,19 @@ module DomainAttempt3' =
     }
     and InProgressTask = {
         Info: TaskInfo 
-        DevId: UserId
+        AssignedTo: UserId
     }
     and DoneTask = {
         Info: TaskInfo
-        DevId: UserId
-        QaId: UserId
+        AssignedTo: UserId
+        ClosedBy: UserId
     }
 
-    let start (devId: UserId) (task: TodoTask) =
-        { Info = task.Info; DevId = devId }
+    let start (assignedTo: UserId) (task: TodoTask) =
+        { Info = task.Info; AssignedTo = assignedTo }
 
-    let close (qaId: UserId) (task: InProgressTask) =
-        { Info = task.Info; DevId = task.DevId ;QaId = qaId }
+    let close (closedBy: UserId) (task: InProgressTask) =
+        { Info = task.Info; AssignedTo = task.AssignedTo; ClosedBy = closedBy }
 
 module App =
     module Result =
@@ -134,19 +134,19 @@ module App =
         }
         and InProgressTask = {
             Info: TaskInfo 
-            DevId: UserId
+            AssignedTo: UserId
         }
         and DoneTask = {
             Info: TaskInfo
-            DevId: UserId
-            QaId: UserId
+            AssignedTo: UserId
+            ClosedBy: UserId
         }
 
-        let private start (devId: UserId) (task: TodoTask) =
-            { Info = task.Info; DevId = devId }
+        let private start (assignedTo: UserId) (task: TodoTask) =
+            { Info = task.Info; AssignedTo = assignedTo }
 
-        let private close (qaId: UserId) (task: InProgressTask) =
-            { Info = task.Info; DevId = task.DevId ;QaId = qaId }
+        let private close (closedBy: UserId) (task: InProgressTask) =
+            { Info = task.Info; AssignedTo = task.AssignedTo; ClosedBy = closedBy }
 
         let private create title description = 
             { Info = { Title = title; Description = description} }
@@ -163,7 +163,7 @@ module App =
                  close userId task |> DoneTask |> Ok
             | _ -> Error (sprintf "%A cannot be closed" task)
 
-        let tryCreate (title: string) (description: string)  : Result<Task, string> =
+        let tryCreate (title: string) (description: string) : Result<Task, string> =
             TodoTask <!> 
                 (create 
                     <!> (notEmptyStringFromString "Title can not be empty" title)
@@ -250,11 +250,11 @@ open App.Tests
 
 (TaskId 1, UserId 1) 
     ||> startHandler
-    |> shouldBeOk (TaskId 1, InProgressTask { Info = { Title = NotEmptyString "t1"; Description = NotEmptyString "d1" }; DevId = UserId 1 })
+    |> shouldBeOk (TaskId 1, InProgressTask { Info = { Title = NotEmptyString "t1"; Description = NotEmptyString "d1" }; AssignedTo = UserId 1 })
 
 (TaskId 1, UserId 1) 
     ||> closeHandler
-    |> shouldBeOk (TaskId 1, DoneTask { Info = { Title = NotEmptyString "t1"; Description = NotEmptyString "d1" }; DevId = UserId 1; QaId = UserId 1 })
+    |> shouldBeOk (TaskId 1, DoneTask { Info = { Title = NotEmptyString "t1"; Description = NotEmptyString "d1" }; AssignedTo = UserId 1; ClosedBy = UserId 1 })
 
 
 
