@@ -73,7 +73,7 @@ module DomainAttempt3 =
     let close (task: InProgressTask) (user: int) =
         { InProgressTask = task; ClosedBy = user }
 
-    // create : string -> string -> TodoTask
+    // create : string -> string -> int -> TodoTask
     // start  : TodoTask -> int -> InProgressTask
     // close  : InProgressTask -> int -> DoneTask
 
@@ -109,7 +109,7 @@ module DomainAttempt3' =
     let close (task: InProgressTask) (user: UserId) =
         { InProgressTask = task; ClosedBy = user }
     
-    // create : NotEmptyString -> NotEmptyString -> TodoTask
+    // create : NotEmptyString -> NotEmptyString -> UserId -> TodoTask
     // start  : TodoTask -> UserId -> InProgressTask
     // close  : InProgressTask -> UserId -> DoneTask
 
@@ -172,11 +172,11 @@ module App =
         let private close (task: InProgressTask) (user: UserId) =
             { InProgressTask = task; ClosedBy = user }
 
-        // create    : NotEmptyString -> NotEmptyString -> TodoTask
+        // create    : NotEmptyString -> NotEmptyString -> UserId -> TodoTask
         // start     : TodoTask -> UserId -> InProgressTask
         // close     : InProgressTask -> UserId -> DoneTask
 
-        let tryCreate title description user  : Result<Task, string> =
+        let tryCreate title description user : Result<Task, string> =
             let a = create 
                         <!> (notEmptyStringFromString "Title can not be empty" title)
                         <*> (notEmptyStringFromString  "Description can not be empty" description)
@@ -202,7 +202,7 @@ module App =
                     |> Ok
             | _ -> Error (sprintf "%A cannot be closed" task)
 
-        // tryCreate : NotEmptyString -> NotEmptyString -> Result<Task, string> 
+        // tryCreate : NotEmptyString -> NotEmptyString -> UserId -> Result<Task, string> 
         // tryStart  : UserId -> TodoTask -> Result<Task, string> 
         // tryClose  : UserId -> InProgressTask -> Result<Task, string>
 
@@ -226,7 +226,11 @@ module App =
 
             data <- Map.add newId task data 
 
-            Ok (newId, task)         
+            Ok (newId, task)
+
+        // tryGet     : TaskId -> Result<Task, string> 
+        // tryUpdate  : TaskId -> Task -> Result<Task, string> 
+        // tryInsert  : Task -> Result<TaskId * Task, string>                 
     
     module Handlers =
         open Domain
@@ -247,6 +251,12 @@ module App =
             tryGet taskId 
                 >>= tryClose userId 
                 >>= tryUpdate taskId
+
+        // tryGet     : string -> string -> UserId -> Result<TaskId * Task, string> 
+        // tryUpdate  : TaskId -> UserId -> Result<TaskId * Task, string> 
+        // tryInsert  : TaskId -> UserId -> Result<TaskId * TaskId * Task, string>               
+
+
 
 open App.Domain
 open App.Handlers
