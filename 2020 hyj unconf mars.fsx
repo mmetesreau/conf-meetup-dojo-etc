@@ -256,8 +256,6 @@ module App =
         // tryUpdate  : TaskId -> UserId -> Result<TaskId * Task, string> 
         // tryInsert  : TaskId -> UserId -> Result<TaskId * TaskId * Task, string>               
 
-
-
 open App.Domain
 open App.Handlers
 
