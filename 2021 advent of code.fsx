@@ -39,6 +39,43 @@ let toBase10 bits =
 let readAllLines path =
     File.ReadAllLines(path)
 
+// Day 6 - Part one
+
+let entry = readAllLines "entry6.txt" |> List.ofArray
+
+let timers = entry.[0] |> split "," |> List.map int
+
+[1..80]
+    |> List.fold (fun timers _ ->
+        [
+            for timer in timers do
+                let timer' = timer - 1
+                if timer' < 0 then yield! [6;8]
+                else yield timer' 
+        ]) timers |> List.length
+
+// Day 6 - Part two
+
+let timers' = 
+    timers
+        |> List.groupBy id
+        |> List.map (fun (x, xs) -> int64 x, int64 xs.Length)
+        |> Map.ofList
+
+[1..256]
+    |> List.fold (fun timers _ ->
+        [
+            for timer,nbr in Map.toSeq timers do
+                let timer' = timer - 1L
+                if timer' < 0L then yield! [6L,nbr; 8L,nbr]
+                else yield timer',nbr
+        ]
+            |> List.groupBy fst
+            |> List.map (fun (timer, nbr) -> timer, List.sumBy snd nbr)
+            |> Map.ofList) timers'
+    |> Map.toList
+    |> List.sumBy snd
+
 // Day 5 - Part one
 
 let entry5 = readAllLines "entry5.txt"
