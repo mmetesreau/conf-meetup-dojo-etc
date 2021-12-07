@@ -30,9 +30,14 @@ let computeFuelConsumption (targetPosition: int) (position: int) = abs (position
 
 [
     for targetPosition in crabPositions do
-        crabPositions |> List.map (computeFuelConsumption targetPosition) |> List.sum
+        crabPositions |> List.sumBy (computeFuelConsumption targetPosition)
 ] |> List.min
- 
+
+// or 
+
+crabPositions
+    |> List.fold (fun minFuel targetPosition -> (crabPositions |> List.sumBy (computeFuelConsumption targetPosition), minFuel) ||> min) (Int32.MaxValue)
+
 // Day 7 - Part two
 
 let computeFuelConsumption' (targetPosition: int) (position: int) = [1.. abs (position - targetPosition)] |> List.sum
@@ -40,8 +45,13 @@ let computeFuelConsumption'M = memoization computeFuelConsumption'
 
 [
     for targetPosition in [List.min crabPositions..List.max crabPositions] do
-        crabPositions |> List.map (computeFuelConsumption'M targetPosition) |> List.sum
+        crabPositions |> List.sumBy (computeFuelConsumption'M targetPosition)
 ] |> List.min
+
+// or 
+
+[List.min crabPositions..List.max crabPositions]
+    |> List.fold (fun minFuel targetPosition -> (crabPositions |> List.sumBy (computeFuelConsumption'M targetPosition), minFuel) ||> min) (Int32.MaxValue)
 
 // Day 6 - Part one
 
