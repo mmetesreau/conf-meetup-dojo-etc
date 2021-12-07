@@ -1,49 +1,53 @@
 // https://adventofcode.com/2021
 open System
 open System.IO
-open System.Text.RegularExpressions
+open System.Collections.Generic
 
-let readAllText path =
-    File.ReadAllText(path)
+let memoization f =
+    let cache = Dictionary<_,_>()
+    fun c ->
+        let exist, value = cache.TryGetValue (c)
+        match exist with
+        | true -> value
+        | _ -> 
+            let value = f c
+            cache.Add (c, value)
+            value
 
 let split (separator: string) (str: string) = 
     str.Split(separator) |> List.ofArray
 
-let isMatch (pattern: string) (str: string) = 
-    Regex.IsMatch(str, pattern)
-
-let contains (pattern: string) (str: string) = 
-    str.Contains(pattern)
-
-let replace (oldValue: string) (newValue: string) (str: string) = 
-    str.Replace(oldValue, newValue)
-
-let substr (start: int) (length: int) (str: string) = 
-    str.Substring(start, length)
-    
-let substr2 (start: int) (str: string) = 
-    str.Substring(start)
-
-let join (str: char seq) = 
-    String.Join("", str)
-
-let startWith (prefix: string) (str: string) = 
-    str.StartsWith(prefix)
-
-let trim (str: string) = 
-    str.Trim()
-
-let toBase10 bits = 
-    Convert.ToInt32(bits, 2)
-
 let readAllLines path =
-    File.ReadAllLines(path)
+    File.ReadAllLines(path) |> List.ofArray
+
+// Day 7 - Part one
+
+let entry7 = readAllLines "entry7.txt"
+
+let crabPositions = entry7.[0] |> split "," |> List.map int
+
+let computeFuelConsumption (targetPosition: int) (position: int) = abs (position - targetPosition)
+
+[
+    for targetPosition in crabPositions do
+        crabPositions |> List.map (computeFuelConsumption targetPosition) |> List.sum
+] |> List.min
+ 
+// Day 7 - Part two
+
+let computeFuelConsumption' (targetPosition: int) (position: int) = [1.. abs (position - targetPosition)] |> List.sum
+let computeFuelConsumption'M = memoization computeFuelConsumption'
+
+[
+    for targetPosition in [List.min crabPositions..List.max crabPositions] do
+        crabPositions |> List.map (computeFuelConsumption'M targetPosition) |> List.sum
+] |> List.min
 
 // Day 6 - Part one
 
-let entry = readAllLines "entry6.txt" |> List.ofArray
+let entry6 = readAllLines "entry6.txt"
 
-let timers = entry.[0] |> split "," |> List.map int
+let timers = entry6.[0] |> split "," |> List.map int
 
 [1..80]
     |> List.fold (fun timers _ ->
@@ -71,7 +75,7 @@ let timers' =
                 else yield timer',nbr
         ]
             |> List.groupBy fst
-            |> List.map (fun (timer, nbr) -> timer, List.sumBy snd nbr)
+            |> List.map (fun (timer, data) -> timer, List.sumBy snd data)
             |> Map.ofList) timers'
     |> Map.toList
     |> List.sumBy snd
@@ -86,12 +90,12 @@ let parse (line: string) =
     let [x';y'] = part2 |> split ","
     int x,int y,int x',int y'
 
-let vents = entry5 |> Array.map parse
+let vents = entry5 |> List.map parse
 
-let maxX = vents |> Array.collect (fun (x,_,x',_) -> [|x;x'|]) |> Array.max
-let maxY = vents |> Array.collect (fun (_,y,_,y') -> [|y;y'|]) |> Array.max        
+let maxX = vents |> List.collect (fun (x,_,x',_) -> [x;x']) |> List.max |> ((+)1)
+let maxY = vents |> List.collect (fun (_,y,_,y') -> [y;y']) |> List.max |> ((+)1)      
 
-let diagram = Array2D.zeroCreate (maxY+1) (maxX+1)
+let diagram = Array2D.zeroCreate maxY maxX
 
 let computePoints (diagram: int[,]) =
     diagram
@@ -100,12 +104,12 @@ let computePoints (diagram: int[,]) =
         |> Seq.length
 
 vents
-    |> Array.fold (fun diagram (x,y,x',y') ->
+    |> List.fold (fun diagram (x,y,x',y') ->
             if x <> x' && y <> y' then diagram
             else
                 let startX, startY = min x x', min y y'
                 let stopX, stopY = max x x',  max y y'
-                Array2D.init (maxY+1) (maxX+1) (fun column line ->
+                Array2D.init maxY maxX (fun column line ->
                     if column >= startY && column <= stopY && line >= startX && line <= stopX then
                         diagram[column, line] + 1
                     else diagram[column, line])) diagram
@@ -113,10 +117,10 @@ vents
 
 // Day 5 - Part two
 
-let diagram' = Array2D.zeroCreate (maxY+1) (maxX+1)
+let diagram' = Array2D.zeroCreate maxY maxX
 
 vents
-    |> Array.fold (fun diagram (x,y,x',y') ->
+    |> List.fold (fun diagram (x,y,x',y') ->
             let minX, minY = min x x', min y y'
             let maxX, maxY = max x x', max y y'
             let diagram' = Array2D.copy diagram
@@ -134,12 +138,11 @@ vents
 
 type Board = (int * bool) list list
 
-let entry4 = readAllLines "entry4.txt" |> List.ofArray
+let entry4 = readAllLines "entry4.txt"
 
 let numbers = entry4.[0] |> split "," |> List.map int
 
-let boards = entry4
-                |> List.skip 2
+let boards = entry4[2..]
                 |> List.windowed 5
                 |> List.filter (List.contains "" >> not)
                 |> List.map (fun board -> 
@@ -175,7 +178,7 @@ play numbers boards
 
 // Day 4 - Part two
 
-let rec play' (numbers: int list) (boards: (int * bool) list list list) (lastWinner: int * (int * bool) list list) =
+let rec play' (numbers: int list) (boards: Board list) (lastWinner: int * Board) =
     match numbers with
     | number::rest ->
         let boards' = List.map (List.map (List.map (fun (n,m) -> n, n=number||m))) boards
@@ -189,10 +192,12 @@ play' numbers boards (0, [[]])
     
 // Day 3 - Part one
 
-let entry3 = readAllLines "entry3.txt" |> List.ofArray
+let entry3 = readAllLines "entry3.txt"
 
 let isBitZero = (=)'0'
 let isBitOne = (=)'1'
+
+let toBase10 bits = Convert.ToInt32(bits, 2)
 
 let countBitsAtPosition (numbers: string list) (position: int) =
     let nthBytes = numbers |> List.map (fun x -> x.[position]) 
@@ -240,9 +245,7 @@ let findCO2ScrubberRating (numbers: string list) =
 
 // Day 2 - Part one
 
-let entry2 = readAllLines "entry2.txt" 
-                |> Array.map (split " ")
-                |> List.ofArray
+let entry2 = readAllLines "entry2.txt" |> List.map (split " ")
 
 let horizon, depth =
     entry2
@@ -267,9 +270,7 @@ horizon' + depth'
 
 // Day 1 - Part one
 
-let entry1 = readAllLines "entry1.txt" 
-                |> Array.map int
-                |> List.ofArray
+let entry1 = readAllLines "entry1.txt" |> List.map int
 
 let countDepthMeasurementIncreases (data: int list) =
     [1..data.Length-1]
