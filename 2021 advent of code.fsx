@@ -20,6 +20,49 @@ let split (separator: string) (str: string) =
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
+// Day 8 - Part one
+
+let entry8 = 
+    readAllLines "Day.txt" 
+        |> List.map (split "|" >> List.map (split " " >> List.filter ((<>) "") >> (List.map Set.ofSeq))) 
+
+entry8
+    |> List.collect (fun [_;outputs] -> outputs)
+    |> List.filter (fun outputs -> outputs.Count = 2 || outputs.Count = 3|| outputs.Count = 4|| outputs.Count = 7)
+    |> List.length
+
+// Day 8 - Part two
+
+let deducts ([signals;outputs]: Set<char> list list) =
+    let map = 
+        signals
+            |> List.sortBy (fun x -> x.Count)
+            |> List.fold (fun map  digit ->
+                match digit.Count with
+                | 2 -> Map.add digit "1" map
+                | 3 -> Map.add digit "7" map
+                | 4 -> Map.add digit "4" map
+                | 5 -> 
+                    let one = map |> Map.findKey (fun _ value -> value = "1") 
+                    let four = map |> Map.findKey (fun _ value -> value = "4") 
+                    if one |> Set.intersect digit |> Set.count = 2 then Map.add digit "3" map
+                    elif four |> Set.intersect digit |> Set.count = 2 then Map.add digit "2" map
+                    else Map.add digit "5" map
+                | 6 -> 
+                    let one = map |> Map.findKey (fun _ value -> value = "1") 
+                    let four = map |> Map.findKey (fun _ value -> value = "4") 
+                    if one |> Set.intersect digit |> Set.count = 1 then Map.add digit "6" map
+                    elif four |> Set.intersect digit |> Set.count = 4 then Map.add digit "9" map
+                    else Map.add digit "0" map
+                | 7 -> Map.add digit "8" map
+                | _ -> map) Map.empty
+    outputs
+        |> List.map (fun x -> map |> Map.find (x |> Set.ofSeq))
+
+entry8
+    |> List.map deducts
+    |> List.sumBy (fun x -> String.Join("", x) |> int)
+
 // Day 7 - Part one
 
 let entry7 = readAllLines "entry7.txt"
