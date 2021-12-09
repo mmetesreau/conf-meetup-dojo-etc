@@ -20,6 +20,46 @@ let split (separator: string) (str: string) =
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
+// Day 9 - Part one
+
+let entry = readAllLines "Day.txt"  
+                |> List.map (Seq.map (string >> int) >> List.ofSeq)
+
+let adjacents (heightmap: int list list) ((x,y) : int * int) = 
+    let height, width = entry.Length-1, entry.[0].Length-1
+    [
+        if x > 0 then yield heightmap.[y].[x-1], x-1, y 
+        if x < width then yield heightmap.[y].[x+1], x+1 ,y 
+        if y > 0 then yield heightmap.[y-1].[x], x, y-1 
+        if y < height then yield heightmap.[y+1].[x], x, y+1 
+    ]
+
+let lowPoints = 
+    [ 
+        for y in [0..entry.Length-1] do
+            for x in [0..entry.[0].Length-1] do
+                if adjacents entry (x, y) |> List.forall (fun (v, _, _)-> entry.[y].[x] < v) then
+                    yield x, y
+    ]
+
+lowPoints |> List.sumBy (fun (x, y) -> entry.[y].[x] + 1)
+
+// Day 9 - Part two
+
+let rec findBasin (heightmap: int list list) (basin: Set<int * int>) ((x,y) : int * int) =
+    if basin |> Set.contains (x, y) then basin
+    else
+        let basin' = basin |> Set.add (x, y) 
+        adjacents heightmap (x, y)
+            |> List.filter (fun (v, _, _) -> v < 9)
+            |> List.fold (fun basin (_, x', y') -> findBasin heightmap basin (x', y') ) basin'
+
+lowPoints
+    |> List.map (findBasin entry Set.empty >> Set.count)
+    |> List.sortDescending
+    |> List.take 3
+    |> List.reduce ((*))
+
 // Day 8 - Part one
 
 let entry8 = 
