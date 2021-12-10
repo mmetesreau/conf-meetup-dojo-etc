@@ -3,6 +3,12 @@ open System
 open System.IO
 open System.Collections.Generic
 
+[<RequireQualifiedAccess>]
+module Result =
+  let isOk = function
+    | Ok _ -> true
+    | Error _ -> false
+
 let memoization f =
     let cache = Dictionary<_,_>()
     fun c ->
@@ -30,36 +36,36 @@ let (|OpeningCharacter|ClosingCharacter|) character =
     if pairs |> Map.containsKey character then OpeningCharacter
     else ClosingCharacter
 
-let checkCharacter (characters: char list) (character: char) =
+let parseCharacter (openedCharacters: char list) (character: char) =
     match character with
-    | OpeningCharacter -> None, character::characters
+    | OpeningCharacter -> character::openedCharacters |> Ok
     | ClosingCharacter -> 
-        if character = pairs.[characters.[0]] then None, characters.Tail
-        else Some character, characters
+        if character = pairs.[openedCharacters.[0]] then openedCharacters.Tail |> Ok
+        else character |> Error
 
-let checkChunk (chunck: char list) =
+let parseChunk (chunck: char list) =
     chunck 
-        |> List.fold (fun (error, characters) character ->
-            match error with
-            | None -> checkCharacter characters character 
-            | _ -> (error, characters)) (None, [])
+        |> List.fold (fun parsingResult character ->
+            match parsingResult with
+            | Ok openedCharacters -> parseCharacter openedCharacters character 
+            | Error e -> Error e) (Ok [])
 
 let errorScores = [')', 3L; ']', 57L; '}', 1197L; '>', 25137L] |> Map.ofList
 
-let chuncks = entry10 |> List.map checkChunk
+let incompleteChuncks, corruptedChunks = 
+    entry10 
+        |> List.map parseChunk
+        |> List.partition Result.isOk
 
-chuncks
-    |> List.filter (fst >> Option.isSome)
-    |> List.sumBy (fun (Some error, _) -> errorScores.[error])
+corruptedChunks |> List.sumBy (fun (Error error) -> errorScores.[error])
 
 // Day 10 - Part two
 
 let charactereScores = [')',1L;']',2L;'}',3L;'>',4L] |> Map.ofList
 
 let scores = 
-    chuncks
-        |> List.filter (fst >> Option.isNone)
-        |> List.map (fun (_, characters) -> characters |> List.map (fun x -> pairs.[x]))
+    incompleteChuncks
+        |> List.map (fun (Ok openedCharacters) -> openedCharacters |> List.map (fun x -> pairs.[x]))
         |> List.map (List.fold (fun score character -> score * 5L + charactereScores.[character]) 0L)
         |> List.sort
 
