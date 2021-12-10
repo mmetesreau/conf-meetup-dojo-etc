@@ -26,6 +26,10 @@ let split (separator: string) (str: string) =
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
+// Day 11 - Part one
+
+// Day 11 - Part two
+
 // Day 10 - Part one
 
 let entry10 = readAllLines "entry10.txt" |> List.map (List.ofSeq)
@@ -63,13 +67,11 @@ corruptedChunks |> List.sumBy (fun (Error error) -> errorScores.[error])
 
 let charactereScores = [')',1L;']',2L;'}',3L;'>',4L] |> Map.ofList
 
-let scores = 
-    incompleteChuncks
-        |> List.map (fun (Ok openedCharacters) -> openedCharacters |> List.map (fun x -> pairs.[x]))
-        |> List.map (List.fold (fun score character -> score * 5L + charactereScores.[character]) 0L)
-        |> List.sort
-
-scores.[scores.Length/2]
+incompleteChuncks
+    |> List.map (fun (Ok missingCharacters) -> missingCharacters |> List.map (fun x -> pairs.[x]))
+    |> List.map (List.fold (fun score character -> score * 5L + charactereScores.[character]) 0L)
+    |> List.sort
+    |> fun scores -> scores.[scores.Length/2]
 
 // Day 9 - Part one
 
