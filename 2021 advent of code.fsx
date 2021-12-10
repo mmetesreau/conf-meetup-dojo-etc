@@ -20,9 +20,54 @@ let split (separator: string) (str: string) =
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
+// Day 10 - Part one
+
+let entry10 = readAllLines "entry10.txt" |> List.map (List.ofSeq)
+
+let pairs = [ '{','}';'[',']';'<','>'; '(',')'] |> Map.ofList
+
+let (|OpeningCharacter|ClosingCharacter|) character =
+    if pairs |> Map.containsKey character then OpeningCharacter
+    else ClosingCharacter
+
+let checkCharacter (characters: char list) (character: char) =
+    match character with
+    | OpeningCharacter -> None, character::characters
+    | ClosingCharacter -> 
+        if character = pairs.[characters.[0]] then None, characters.Tail
+        else Some character, characters
+
+let checkChunk (chunck: char list) =
+    chunck 
+        |> List.fold (fun (error, characters) character ->
+            match error with
+            | None -> checkCharacter characters character 
+            | _ -> (error, characters)) (None, [])
+
+let errorScores = [')', 3L; ']', 57L; '}', 1197L; '>', 25137L] |> Map.ofList
+
+let chuncks = entry10 |> List.map checkChunk
+
+chuncks
+    |> List.filter (fst >> Option.isSome)
+    |> List.sumBy (fun (Some error, _) -> errorScores.[error])
+
+// Day 10 - Part two
+
+let charactereScores = [')',1L;']',2L;'}',3L;'>',4L] |> Map.ofList
+
+let scores = 
+    chuncks
+        |> List.filter (fst >> Option.isNone)
+        |> List.map (fun (_, characters) -> characters |> List.map (fun x -> pairs.[x]))
+        |> List.map (List.fold (fun score character -> score * 5L + charactereScores.[character]) 0L)
+        |> List.sort
+
+scores.[scores.Length/2]
+
 // Day 9 - Part one
 
-let entry = readAllLines "Day.txt"  
+let entry = readAllLines "entry9.txt"  
                 |> List.map (Seq.map (string >> int) >> List.ofSeq)
 
 let adjacents (heightmap: int list list) ((x,y) : int * int) = 
@@ -63,7 +108,7 @@ lowPoints
 // Day 8 - Part one
 
 let entry8 = 
-    readAllLines "Day.txt" 
+    readAllLines "entry8.txt" 
         |> List.map (split "|" >> List.map (split " " >> List.filter ((<>) "") >> (List.map Set.ofSeq))) 
 
 entry8
