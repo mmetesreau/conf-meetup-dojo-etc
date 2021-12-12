@@ -12,7 +12,7 @@ module Result =
 let memoization f =
     let cache = Dictionary<_,_>()
     fun c ->
-        let exist, value = cache.TryGetValue (c)
+        let exist, value = cache.TryGetValue c
         match exist with
         | true -> value
         | _ -> 
@@ -20,15 +20,136 @@ let memoization f =
             cache.Add (c, value)
             value
 
+let contains (pattern: string) (str: string) = 
+    str.Contains(pattern)
+
 let split (separator: string) (str: string) = 
     str.Split(separator) |> List.ofArray
 
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
+// Day 12 - Part one
+
+let entry12 = readAllLines "entry12.txt"  
+
+let starts = 
+    entry12 
+        |> List.filter (contains "start")
+        |> List.collect (split "-")
+        |> List.filter ((<>)"start")
+
+let ends = 
+    entry12 
+        |> List.filter (contains "end")
+        |> List.collect (split "-")
+        |> List.filter ((<>)"end")
+
+let connections = 
+    entry12 
+        |> List.filter (fun token -> token |> (contains "start" >> not) && token |> (contains "end" >> not))
+        |> List.collect (fun token -> 
+            let [cave;cave'] = token |> split "-"
+            [cave, cave';cave', cave])
+        |> List.groupBy fst
+        |> Map.ofList
+
+let isSmallCave (cave: string) = cave <> cave.ToUpper()
+
+let rec visit (connections: Map<string, (string * string) list>) (path: string list) (cave: string) = 
+    [
+        if isSmallCave cave |> not || path |> List.contains cave |> not then
+
+            if ends |> List.contains cave then yield cave::path
+
+            for _, cave' in connections.[cave] do
+                if isSmallCave cave' then
+                    yield! visit connections (cave::path) cave'
+                else 
+                    yield! visit connections (cave::path) cave'
+    ]
+
+starts
+    |> List.collect (visit connections [])
+    |> List.distinct
+    |> List.length
+
+// Day 12 - Part two
+
+let rec visit' (connections: Map<string, (string * string) list>) (path: string list) (cave: string) = 
+    [
+        if  isSmallCave cave |> not 
+            || path |> List.contains cave |> not 
+            || path |> List.filter isSmallCave |> List.countBy id |> List.exists (snd >> ((<)1)) |> not then
+
+            if ends |> List.contains cave then yield cave::path
+
+            for _, cave' in connections.[cave] do
+            
+                if isSmallCave cave' then
+                    yield! visit' connections (cave::path) cave'
+                else 
+                    yield! visit' connections (cave::path) cave'
+    ]
+
+starts
+    |> List.collect (visit' connections [])
+    |> List.distinct
+    |> List.length
+
 // Day 11 - Part one
 
+let entry11 = readAllLines "entry11.txt" |> List.map (Seq.map (string >> int) >> List.ofSeq)
+
+let adjacents' (height: int) (width: int) ((x,y) : int * int) = 
+    [
+        if x > 0 then yield x-1, y 
+        if x < width then yield x+1 ,y 
+        if y > 0 then yield x, y-1 
+        if y < height then yield x, y+1 
+        
+        if x < width && y < height then yield x+1, y+1 
+        if x < width && y > 0 then yield x+1, y-1 
+        if x > 0  && y > 0 then yield x-1, y-1 
+        if x > 0  && y < height then yield  x-1, y+1 
+    ]
+
+let adjacents'' = adjacents' (entry11.Length-1) (entry11.[0].Length-1)
+
+let tick (octopuses: Map<(int * int), int>) =
+    let rec tick' (octopuses: Map<(int * int), int>) (positions: (int*int) list) =
+        let octopuses' = octopuses |> Map.map (fun position energy -> energy + (positions |> List.filter ((=) position) |> List.length))
+        let flashing = positions |> List.filter (fun x -> octopuses'.[x] > 9) |> List.distinct
+        let positions' = 
+           flashing
+                |> List.collect adjacents''
+                |> List.filter (fun x -> octopuses'.[x] <= 9)
+
+        if positions'.Length = 0 then octopuses' |> Map.map (fun _ energy -> if energy > 9 then 0 else energy)
+        else tick' octopuses' positions'
+    
+    tick' octopuses (List.ofSeq octopuses.Keys)
+    
+let octopuses = 
+    [
+        for y in [0..entry11.Length-1] do
+             for x in [0..entry11.[0].Length-1] -> (x,y), entry11.[y].[x]
+    ] |> Map.ofList
+
+[1..100]
+    |> List.scan (fun octopuses _ -> tick octopuses) octopuses
+    |> List.map (fun octopuses -> octopuses |> Map.filter (fun _ energy -> energy = 0) |> Map.count)
+    |> List.sum
+
 // Day 11 - Part two
+
+Seq.initInfinite id
+    |> Seq.scan (fun (step, octopuses) _ -> step+1, (tick octopuses)) (0, octopuses)
+    |> Seq.map (fun  (step, octopuses) -> step, octopuses |> Map.filter (fun _ energy -> energy = 0) |> Map.count)
+    |> Seq.takeWhile (fun (_, flashes) -> flashes <> 100)
+    |> List.ofSeq
+    |> List.last
+    |> (fst >> ((+)1))
 
 // Day 10 - Part one
 
@@ -111,7 +232,7 @@ lowPoints
     |> List.map (findBasin entry Set.empty >> Set.count)
     |> List.sortDescending
     |> List.take 3
-    |> List.reduce ((*))
+    |> List.reduce (*)
 
 // Day 8 - Part one
 
@@ -187,7 +308,7 @@ let computeFuelConsumption'M = memoization computeFuelConsumption'
 // or 
 
 [List.min crabPositions..List.max crabPositions]
-    |> List.fold (fun minFuel targetPosition -> (crabPositions |> List.sumBy (computeFuelConsumption'M targetPosition), minFuel) ||> min) (Int32.MaxValue)
+    |> List.fold (fun minFuel targetPosition -> (crabPositions |> List.sumBy (computeFuelConsumption'M targetPosition), minFuel) ||> min) Int32.MaxValue
 
 // Day 6 - Part one
 
