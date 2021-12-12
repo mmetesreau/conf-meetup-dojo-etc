@@ -29,6 +29,10 @@ let split (separator: string) (str: string) =
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
+// Day 13 - Part one
+
+// Day 13 - Part two
+
 // Day 12 - Part one
 
 let entry12 = readAllLines "entry12.txt"  
