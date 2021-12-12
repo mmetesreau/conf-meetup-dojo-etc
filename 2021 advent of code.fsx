@@ -58,15 +58,13 @@ let isSmallCave (cave: string) = cave <> cave.ToUpper()
 
 let rec visit (connections: Map<string, (string * string) list>) (path: string list) (cave: string) = 
     [
-        if isSmallCave cave |> not || path |> List.contains cave |> not then
+        if (isSmallCave >> not) cave || path |> (List.contains cave >> not) then
 
             if ends |> List.contains cave then yield cave::path
 
             for _, cave' in connections.[cave] do
-                if isSmallCave cave' then
-                    yield! visit connections (cave::path) cave'
-                else 
-                    yield! visit connections (cave::path) cave'
+                if isSmallCave cave' then yield! visit connections (cave::path) cave'
+                else yield! visit connections (cave::path) cave'
     ]
 
 starts
@@ -78,18 +76,14 @@ starts
 
 let rec visit' (connections: Map<string, (string * string) list>) (path: string list) (cave: string) = 
     [
-        if  isSmallCave cave |> not 
-            || path |> List.contains cave |> not 
-            || path |> List.filter isSmallCave |> List.countBy id |> List.exists (snd >> ((<)1)) |> not then
+         if (isSmallCave >> not) cave || path |> (List.contains cave >> not)
+            || path |> List.filter isSmallCave |> List.countBy id |> (List.exists (snd >> ((<)1)) >> not) then
 
             if ends |> List.contains cave then yield cave::path
 
             for _, cave' in connections.[cave] do
-            
-                if isSmallCave cave' then
-                    yield! visit' connections (cave::path) cave'
-                else 
-                    yield! visit' connections (cave::path) cave'
+                if isSmallCave cave' then yield! visit' connections (cave::path) cave'
+                else yield! visit' connections (cave::path) cave'
     ]
 
 starts
@@ -136,16 +130,21 @@ let octopuses =
              for x in [0..entry11.[0].Length-1] -> (x,y), entry11.[y].[x]
     ] |> Map.ofList
 
+let countFlash (octopuses: Map<int * int, int>) = 
+    octopuses
+        |> Map.filter (fun _ energy -> energy = 0)
+        |> Map.count
+
 [1..100]
     |> List.scan (fun octopuses _ -> tick octopuses) octopuses
-    |> List.map (fun octopuses -> octopuses |> Map.filter (fun _ energy -> energy = 0) |> Map.count)
+    |> List.map countFlash
     |> List.sum
 
 // Day 11 - Part two
 
 Seq.initInfinite id
     |> Seq.scan (fun (step, octopuses) _ -> step+1, (tick octopuses)) (0, octopuses)
-    |> Seq.map (fun  (step, octopuses) -> step, octopuses |> Map.filter (fun _ energy -> energy = 0) |> Map.count)
+    |> Seq.map (fun  (step, octopuses) -> step, octopuses |> countFlash)
     |> Seq.takeWhile (fun (_, flashes) -> flashes <> 100)
     |> List.ofSeq
     |> List.last
