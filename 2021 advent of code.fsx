@@ -26,12 +26,75 @@ let contains (pattern: string) (str: string) =
 let split (separator: string) (str: string) = 
     str.Split(separator) |> List.ofArray
 
+let replace (oldValue: string) (newValue: string) (str: string) = 
+    str.Replace(oldValue, newValue)
+    
+let startWith (prefix: string) (str: string) = 
+    str.StartsWith(prefix)
+
+let empty (str: string) = 
+    String.IsNullOrEmpty(str)
+
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
 // Day 13 - Part one
 
+let entry13 = readAllLines "entry13.txt"  
+ 
+let instructionSection, dotSection = 
+    entry13
+        |> List.filter (empty >> not)
+        |> List.partition (startWith "fold")
+
+let dots = 
+    dotSection 
+        |> List.map (fun line -> 
+            let [x;y] = line |> split ","
+            int x, int y)
+        |> Set.ofList
+
+let instructions = 
+    instructionSection
+        |> List.map (fun line -> 
+            let [direction;value] = line |> replace "fold along " "" |> split "="
+            direction, int value)
+
+let foldPaper (dots: (int * int) Set)  ((direction, value): (string * int)) =
+    if direction = "y" then
+        let top, bottom = 
+            dots 
+                |> Set.filter (fun (x,y) -> value <> y)
+                |> Set.partition (fun (x,y) -> value > y)
+        top 
+            |> Set.union (bottom |> Set.map (fun (x,y) -> x, abs (y - value * 2)))
+    else
+        let left, right = 
+            dots 
+                |> Set.filter (fun (x,y) -> value <> x)
+                |> Set.partition (fun (x,y) -> value > x)
+        left
+            |> Set.union (right |> Set.map (fun (x,y) -> abs (x - value * 2), y))
+
+instructions.[0]  
+    |> foldPaper dots
+    |> Set.count
+
 // Day 13 - Part two
+
+let print (dots: (int * int) Set) =
+    let maxX, maxY = dots |> Set.map (fst) |> Set.maxElement, dots |> Set.map (snd) |> Set.maxElement
+    printfn ""
+    for y in [0..maxY] do 
+        printfn ""
+        for x in [0..maxX] do
+            if dots |> Set.exists (fun dot -> dot = (x,y)) then printf "#"
+            else printf "."
+    printfn ""
+
+instructions  
+    |> List.fold foldPaper dots
+    |> print
 
 // Day 12 - Part one
 
