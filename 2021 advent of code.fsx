@@ -38,6 +38,72 @@ let empty (str: string) =
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
+
+// Day 14 - Part one
+
+let entry14 = readAllLines "entry14.txt"  
+
+let rules = 
+    entry14.[2..]
+        |> List.map (fun x -> (split " -> " x).[0], (split " -> " x).[1])
+        |> Map.ofList
+
+let template = 
+    entry14.[0]
+        |> Seq.windowed 2
+        |> Seq.map (fun x -> $"{x.[0]}{x.[1]}")
+        |> Seq.countBy id
+        |> Seq.map (fun (k, v) -> KeyValuePair(k, float v))
+        |> (fun x -> Dictionary<string, float>(x))
+
+let insert (template: Dictionary<string, float>) =
+    let template' = Dictionary<string, float>()
+
+    for pair in template.Keys do
+        let pair1 = $"{pair.[0]}{rules.[pair]}"
+        let pair2 = $"{rules.[pair]}{pair.[1]}"
+
+        if template'.ContainsKey(pair1) |> not then template'.Item(pair1) <- 0.
+        if template'.ContainsKey(pair2) |> not then template'.Item(pair2) <- 0.
+
+        template'.Item(pair1) <- template'.Item(pair1) + template.Item(pair)
+        template'.Item(pair2) <- template'.Item(pair2) + template.Item(pair)
+
+    template'
+
+let count (template: Dictionary<string, float>) =
+    let count = Dictionary<string, float>()
+
+    for pair in template.Keys do
+          let pair1 = $"{pair.[0]}"
+          let pair2 = $"{pair.[1]}"
+          if count.ContainsKey(pair1) |> not then count.Item(pair1) <- 0.
+          if count.ContainsKey(pair2) |> not then count.Item(pair2) <- 0.
+          count.Item(pair1) <- count.Item(pair1) + template.Item(pair)
+          count.Item(pair2) <- count.Item(pair2) + template.Item(pair)
+
+    count
+
+let max, min = 
+    [1..10]
+        |> List.fold (fun template _ -> insert template) template
+        |> count
+        |> Seq.sortBy (fun x -> x.Value)
+        |> (fun x -> Math.Ceiling((x |> Seq.last).Value / 2.), Math.Ceiling((x |> Seq.head).Value / 2.))
+
+max - min |> string
+
+// Day 14 - Part two
+
+let max', min' = 
+    [1..40]
+        |> List.fold (fun template _ -> insert template) template
+        |> count
+        |> Seq.sortBy (fun x -> x.Value)
+        |> (fun x -> Math.Ceiling((x |> Seq.last).Value / 2.), Math.Ceiling((x |> Seq.head).Value / 2.))
+
+max' - min' |> string
+
 // Day 13 - Part one
 
 let entry13 = readAllLines "entry13.txt"  
