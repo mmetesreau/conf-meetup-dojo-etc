@@ -73,38 +73,38 @@ let insert (template: Dictionary<string, float>) =
 
     template'
 
-let count (template: Dictionary<string, float>) =
-    let count = Dictionary<string, float>()
+let countElements (template: Dictionary<string, float>) =
+    let elements = Dictionary<string, float>()
 
     for pair in template.Keys do
-          let pair1 = $"{pair.[0]}"
-          let pair2 = $"{pair.[1]}"
-          if count.ContainsKey(pair1) |> not then count.Item(pair1) <- 0.
-          if count.ContainsKey(pair2) |> not then count.Item(pair2) <- 0.
-          count.Item(pair1) <- count.Item(pair1) + template.Item(pair)
-          count.Item(pair2) <- count.Item(pair2) + template.Item(pair)
+          let element1 = $"{pair.[0]}"
+          let element2 = $"{pair.[1]}"
+          if elements.ContainsKey(element1) |> not then elements.Item(element1) <- 0.
+          if elements.ContainsKey(element2) |> not then elements.Item(element2) <- 0.
+          elements.Item(element1) <- elements.Item(element1) + template.Item(pair)
+          elements.Item(element2) <- elements.Item(element2) + template.Item(pair)
 
-    count
+    elements
 
 let mostCommon, leastCommon = 
     [1..10]
         |> List.fold (fun template _ -> insert template) template
-        |> count
+        |> countElements
         |> Seq.sortBy (fun x -> x.Value)
-        |> (fun x -> (x |> Seq.last).Value / 2. |> ceil, (x |> Seq.head).Value / 2. |> ceil)
+        |> (fun x -> x |> Seq.last, x |> Seq.head)
 
-mostCommon - leastCommon |> string
+ceil (mostCommon.Value / 2.) - ceil (leastCommon.Value / 2.) |> string
 
 // Day 14 - Part two
 
 let mostCommon', leastCommon' = 
     [1..40]
         |> List.fold (fun template _ -> insert template) template
-        |> count
+        |> countElements
         |> Seq.sortBy (fun x -> x.Value)
-        |> (fun x -> (x |> Seq.last).Value / 2. |> ceil, (x |> Seq.head).Value / 2. |> ceil)
+        |> (fun x -> x |> Seq.last, x |> Seq.head)
 
-mostCommon' - leastCommon' |> string
+ceil (mostCommon'.Value / 2.) - ceil (leastCommon'.Value / 2.) |> string
 
 // Day 13 - Part one
 
