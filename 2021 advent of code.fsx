@@ -35,9 +35,11 @@ let startWith (prefix: string) (str: string) =
 let empty (str: string) = 
     String.IsNullOrEmpty(str)
 
+let ceil (x: float) = 
+    Math.Ceiling(x)
+
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
-
 
 // Day 14 - Part one
 
@@ -84,25 +86,25 @@ let count (template: Dictionary<string, float>) =
 
     count
 
-let max, min = 
+let mostCommon, leastCommon = 
     [1..10]
         |> List.fold (fun template _ -> insert template) template
         |> count
         |> Seq.sortBy (fun x -> x.Value)
-        |> (fun x -> Math.Ceiling((x |> Seq.last).Value / 2.), Math.Ceiling((x |> Seq.head).Value / 2.))
+        |> (fun x -> (x |> Seq.last).Value / 2. |> ceil, (x |> Seq.head).Value / 2. |> ceil)
 
-max - min |> string
+mostCommon - leastCommon |> string
 
 // Day 14 - Part two
 
-let max', min' = 
+let mostCommon', leastCommon' = 
     [1..40]
         |> List.fold (fun template _ -> insert template) template
         |> count
         |> Seq.sortBy (fun x -> x.Value)
-        |> (fun x -> Math.Ceiling((x |> Seq.last).Value / 2.), Math.Ceiling((x |> Seq.head).Value / 2.))
+        |> (fun x -> (x |> Seq.last).Value / 2. |> ceil, (x |> Seq.head).Value / 2. |> ceil)
 
-max' - min' |> string
+mostCommon' - leastCommon' |> string
 
 // Day 13 - Part one
 
