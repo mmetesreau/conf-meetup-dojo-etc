@@ -41,6 +41,202 @@ let ceil (x: float) =
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
+// Day 17 - Part one
+
+let entry17 = readAllLines "entry17.txt"  
+
+// Day 17 - Part two
+
+// Day 16 - Part one
+
+let entry16 = readAllLines "entry16.txt"  
+
+type ParsingResult = {
+    Version: int
+    Value: int64
+}
+
+let toLong (bits: string) = Convert.ToInt64(bits, 2)
+let toInt (bits: string) = Convert.ToInt32(bits, 2)
+
+let toBits (hexa: string) = 
+    let mapping = 
+        [
+            "0","0000"
+            "1","0001"
+            "2","0010"
+            "3","0011"
+            "4","0100"
+            "5","0101"
+            "6","0110"
+            "7","0111"
+            "8","1000"
+            "9","1001"
+            "A","1010"
+            "B","1011"
+            "C","1100"
+            "D","1101"
+            "E","1110"
+            "F","1111"
+        ] |> Map.ofList
+    hexa |> Seq.fold (fun s x -> $"{s}{mapping.[(string x)]}") ""
+
+let calculate (typeId: int) (subPackets: ParsingResult list) : int64 =
+    let values = subPackets |> List.map (fun x -> x.Value)
+
+    match typeId with
+    | 0 ->  values |> List.fold (fun x1 x2 -> x1 + x2) 0L
+    | 1 -> values |> List.fold (fun x1 x2 -> x1 * x2) 1L
+    | 2 -> values |> List.min
+    | 3 -> values |> List.max
+    | 5 -> if values.[1] > values.[0] then 1L else 0L
+    | 6 -> if values.[1] < values.[0] then 1L else 0L
+    | 7 -> if values.[0] = values.[1] then 1L else 0L
+
+let parseTypeId (packet: string) = packet.[3..5] |> toInt
+
+let parseVersion (packet: string) = packet.[0..2] |> toInt
+
+let parseLengthTypeId (packet: string) = packet.[6] |> (string >> toInt)
+
+let rec parse (packet: string) : ParsingResult * string = 
+    let version = parseVersion packet 
+    match parseTypeId packet with
+    | 4 -> 
+        let rec parse (bits: string) (groups: string) = 
+            if bits.Length < 5 then groups, bits
+            else
+                let group = bits.[0..4]
+                if group.[0] = '0' then $"{groups}{group.[1..]}", bits.[5..]
+                else
+                    parse bits.[5..] $"{groups}{group.[1..]}"
+
+        let binaryNumber, rest = parse packet.[6..] ""
+        { Version = version; Value = binaryNumber |> toLong }, rest
+    | operatorTypeId ->
+        match parseLengthTypeId packet  with
+        | 1 ->
+            let number = packet.[7..17] |> toInt
+            let subPackets, rest =
+                [1..number]
+                    |> List.fold (fun (packets, bits) _ -> 
+                        let packet, rest = parse bits
+                        packet::packets, rest) ([], packet.[18..])
+
+            { Version = version + (subPackets |> List.sumBy (fun x -> x.Version));  Value = calculate operatorTypeId subPackets }, rest
+        | 0 ->
+            let length = packet.[7..21] |> toInt
+            let subPackets, _ =
+                Seq.initInfinite id
+                    |> Seq.scan (fun (packets, bits) _ -> 
+                                    match bits with
+                                    | Some (x) when String.length x > 0 -> 
+                                            let packet, rest = parse x
+                                            packet::packets, Some rest
+                                    | _ -> packets, None) ([], Some packet.[22..length+21])
+                    |> Seq.takeWhile(fun (_, rest) -> Option.isSome rest)
+                    |> Seq.last
+
+            { Version = version + (subPackets |> List.sumBy (fun x -> x.Version)); Value = calculate operatorTypeId subPackets }, packet.[length+22..]
+
+let parsingResult, _ = 
+    entry16.[0] 
+        |> toBits
+        |> parse
+
+parsingResult.Version
+
+// Day 16 - Part two
+
+parsingResult.Value
+
+// Day 15 - Part one
+
+let entry15 = readAllLines "entry15.txt"  
+
+type Point = int * int
+
+// https://en.wikipedia.org/wiki/A*_search_algorithm#Pseudocode
+let AStart (start: Point) (goal: Point) (costs: Map<Point, int>) (getNeighbors: Point -> Point list) = 
+    let inline getOrMax x map = 
+        match map |> Map.tryFind x with
+        | Some cost -> cost
+        | _ -> Int32.MaxValue
+
+    let mutable cameFrom = Map.empty
+    let mutable gScore = Map.add start 0 Map.empty
+    let mutable fScore = Map.add start (getOrMax start costs) Map.empty
+    let mutable path = []
+    let mutable current: Point = start
+
+    let openSet = new PriorityQueue<Point, int>()
+    openSet.Enqueue(start, getOrMax start fScore)
+
+    while openSet.Count <> 0 do
+        current <- openSet.Dequeue()
+        if current = goal then 
+            path <- [current]
+            while cameFrom |> Map.containsKey current do
+                 current <- cameFrom.[current]
+                 path <- current::path
+            openSet.Clear()
+        else
+            let neighbors = getNeighbors current
+            for neighbor in neighbors do
+                let score = getOrMax current gScore + getOrMax current costs
+                if score < getOrMax neighbor gScore then
+                    cameFrom <- Map.add neighbor current cameFrom
+                    gScore <- Map.add neighbor score gScore
+                    fScore <- Map.add neighbor (score + costs.[neighbor]) fScore
+                    openSet.Enqueue(neighbor, getOrMax neighbor fScore)
+    path
+
+let getNeighbors (height: int) (width: int) ((x,y) : Point) = 
+    [
+        if x < width then yield x+1 ,y 
+        if y < height then yield x, y+1 
+        if x > 0 then yield x-1, y 
+        if y > 0 then yield x, y-1 
+    ]
+
+let getRisks (map: int list list) = 
+    [
+        for y in [0..map.Length-1] do
+            for x in [0..map.[0].Length-1] do
+                yield (x,y), map.[y].[x]
+    ] |> Map.ofList
+
+let map = entry15 |> List.map (Seq.map (string >> int) >> List.ofSeq)
+let risks = getRisks map
+let topLeft = (0,0)
+let bottomRight = (map.[0].Length-1, map.Length-1)
+
+AStart topLeft bottomRight risks (getNeighbors (map.Length-1) (map.[0].Length-1))
+    |> List.sumBy (fun x -> risks.[x]) 
+    |> fun x -> x - risks.[topLeft]
+
+// Day 15 - Part two
+
+let bigMap = 
+    Array.init (5*map.Length) 
+        (fun y -> Array.init (5*map.[0].Length) (fun x -> 
+            let risk = map.[y%map.Length].[x%map.[0].Length]
+            let times =  y / map.Length + x / map.[0].Length
+            [1..times] 
+                |> List.fold (fun risk _ -> 
+                                    match risk + 1 with
+                                    | 10 -> 1
+                                    | n -> n) risk))
+        |> Array.map (List.ofArray) 
+        |> List.ofArray
+
+let bigRisks = getRisks bigMap
+let bottomRight' = (bigMap.[0].Length-1, bigMap.Length-1)
+
+AStart topLeft bottomRight' bigRisks (getNeighbors (bigMap.Length-1) (bigMap.[0].Length-1))
+    |> List.sumBy (fun x -> bigRisks.[x]) 
+    |> fun x -> x - bigRisks.[topLeft]
+
 // Day 14 - Part one
 
 let entry14 = readAllLines "entry14.txt"  
