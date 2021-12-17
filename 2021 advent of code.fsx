@@ -41,11 +41,73 @@ let ceil (x: float) =
 let readAllLines path =
     File.ReadAllLines(path) |> List.ofArray
 
+// Day 18 - Part one
+
+let entry18 = readAllLines "entry18.txt"  
+
+// Day 18 - Part two
+
 // Day 17 - Part one
 
 let entry17 = readAllLines "entry17.txt"  
 
+let [(startX, stopX);(startY, stopY)] = 
+    entry17.[0]
+        |> replace "target area: " ""
+        |> split ","
+        |> List.map (fun x -> 
+              let [_;range] = x |> split "="
+              let [start;stop] = range |> split ".."
+              (int start, int stop))
+  
+type Velocity = int * int
+type Position = int * int
+type Range = int * int
+type Area = Range * Range
+
+let move ((x, y): Position) ((vx, vy): Velocity) =
+    match vx with
+    | 0 ->  (x + vx,  y + vy), (vx, vy - 1)
+    | vx when vx > 0 ->  (x + vx,  y + vy), (vx - 1, vy - 1)
+    | vx when vx < 0 ->  (x + vx,  y + vy), (vx + 1, vy - 1)
+
+let isInArea (((startX, stopX), (startY, stopY)): Area) ((x, y): Position) =
+    x >= startX && x <= stopX && y >= startY && y <= stopY
+
+let wontMakeIt (((startX, stopX), (startY, stopY)): Area) ((x, y): Position) ((vx, vy): Velocity) =
+    (x + vx > stopX) || (y + vy < startY) 
+
+let launch (area: Area) (velocity: Velocity) = 
+    let rec launch' (position: Position) (velocity: Velocity) (history: Position list) =
+        let (x',y'), (vx',vy') = move position velocity
+        let history' = (x',y')::history
+        if isInArea area (x', y') then Some history'
+        else
+            if wontMakeIt area (x', y') (vx',vy') then None
+            else launch' (x',y') (vx',vy') history'
+
+    match launch' (0,0) velocity [(0,0)] with
+    | Some (history) -> Some (velocity, history)
+    | _ -> None
+
+let vxMax = max (abs startX) (abs stopX)
+let vyMax = max (abs startY) (abs stopY)
+
+let velocities = 
+    [ for vx in [-vxMax..vxMax] do
+            for vy in [-vyMax..vyMax] do
+                match launch ((startX, stopX), (startY, stopY)) (vx, vy) with
+                | Some(velocity) -> yield velocity
+                | _ -> () ]
+
+velocities
+    |> List.maxBy (fun ((_, vy), _) -> vy)
+    |> (fun (_, history) -> history |> List.maxBy (fun (_, y) -> y))
+    |> snd
+
 // Day 17 - Part two
+
+velocities |> List.length
 
 // Day 16 - Part one
 
@@ -99,7 +161,7 @@ let parseVersion (packet: string) = packet.[0..2] |> toInt
 
 let parseLengthTypeId (packet: string) = packet.[6] |> (string >> toInt)
 
-let rec parse (packet: string) : ParsingResult * string = 
+let rec parsePacket (packet: string) : ParsingResult * string = 
     let version = parseVersion packet 
     match parseTypeId packet with
     | 4 -> 
@@ -120,7 +182,7 @@ let rec parse (packet: string) : ParsingResult * string =
             let subPackets, rest =
                 [1..number]
                     |> List.fold (fun (packets, bits) _ -> 
-                        let packet, rest = parse bits
+                        let packet, rest = parsePacket bits
                         packet::packets, rest) ([], packet.[18..])
 
             { Version = version + (subPackets |> List.sumBy (fun x -> x.Version));  Value = calculate operatorTypeId subPackets }, rest
@@ -131,7 +193,7 @@ let rec parse (packet: string) : ParsingResult * string =
                     |> Seq.scan (fun (packets, bits) _ -> 
                                     match bits with
                                     | Some (x) when String.length x > 0 -> 
-                                            let packet, rest = parse x
+                                            let packet, rest = parsePacket x
                                             packet::packets, Some rest
                                     | _ -> packets, None) ([], Some packet.[22..length+21])
                     |> Seq.takeWhile(fun (_, rest) -> Option.isSome rest)
@@ -142,7 +204,7 @@ let rec parse (packet: string) : ParsingResult * string =
 let parsingResult, _ = 
     entry16.[0] 
         |> toBits
-        |> parse
+        |> parsePacket
 
 parsingResult.Version
 
