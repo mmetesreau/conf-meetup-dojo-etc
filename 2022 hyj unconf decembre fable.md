@@ -227,3 +227,8 @@ let App() =
         </ul>
     """
 ```
+### Sources
+
+- [Fable](https://fable.io/)
+- [Lit](https://lit.dev/)
+- [Fable Lit](https://fable.io/Fable.Lit/)
