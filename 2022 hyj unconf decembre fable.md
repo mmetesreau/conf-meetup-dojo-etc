@@ -28,17 +28,17 @@ npm install --save-dev vite
 
 Créer un projet dotnet :
 
-``` sh
-dotnet new classlib --language "f#" --framework "netstandard2.0" --output src --name Demo
+``` shell
+dotnet new classlib --language "f#" --framework "netstandard2.0" --output src --name App
 ```
 
 Installer Fable :
 
-```
+``` shell
 dotnet new tool-manifest
 
 # compilateur fsharp vers js
-dotnet tool install fable --local
+dotnet tool install fable --local --version "4.0.0-theta-*"
 
 # gestionnaire de binding Fable
 dotnet tool install femto --local
@@ -58,7 +58,7 @@ Importer le projet compilé :
         <script type="module" src="./build/Library.js"></script>
     </head>
     <body>
-        <div id='container'></div>
+        Hello!
     </body>
 </html>
 ```
@@ -81,14 +81,15 @@ Ajouter les scripts dans le package.json :
 
 Installer le binding pour Browser :
 
-``` sh
-dotnet femto install Fable.Browser.Dom
+``` shell
+dotnet femto install Fable.Core src/
+dotnet femto install Fable.Browser.Dom src/
 ```
 
 Modifier Library.fs :
 
 ``` fsharp
-module Demo
+module App
 
 open Browser
 
@@ -98,7 +99,7 @@ div.textContent <- "Hello browser!"
 
 let container = document.getElementById("container")
 
-app.insertBefore(div, app) |> ignore
+container.insertBefore(div, null) |> ignore
 ```
 
 Modifier index.html :
@@ -114,17 +115,26 @@ Modifier index.html :
 </html>
 ```
 
+
+Lancer la webapp :
+
+``` shell
+npm run start
+```
+
 ### Hello web components
 
 Installer le binding pour Lit :
 
 ``` sh
-dotnet femto install Fable.Lit
+dotnet femto install Fable.Lit src/
 ```
 
 Modifier Library.fs :
 
 ``` fsharp
+module App
+
 open Lit
 
 [<LitElement("demo-app")>]
@@ -132,7 +142,7 @@ let App() =
     let _ = LitElement.init(fun cfg -> ())
 
     html $"""
-        <div>Hello web compoenent!</div>
+        <div>Hello web component!</div>
     """
 ```
 
@@ -160,6 +170,8 @@ Modifier index.html :
 #### Les hooks
 
 ``` fsharp
+module App
+
 open Lit
 
 [<LitElement("demo-app")>]
@@ -181,6 +193,8 @@ let App() =
 #### Les listes
 
 ``` fsharp
+module App
+
 open Lit
 
 [<LitElement("demo-app")>]
@@ -200,6 +214,8 @@ let App() =
 #### Les props
 
 ``` fsharp
+module App
+
 open Lit
 
 [<LitElement("demo-item")>]
@@ -227,6 +243,13 @@ let App() =
         </ul>
     """
 ```
+
+### Demo
+
+``` fsharp
+TODO
+```
+
 ### Sources
 
 - [Fable](https://fable.io/)
