@@ -246,6 +246,10 @@ let App() =
 
 ### Demo
 
+``` shell
+dotnet femto install Thoth.Fetch
+```
+
 ``` fsharp
 module App
 
@@ -295,6 +299,85 @@ let App() =
             { todos |> Lit.mapUnique (fun x -> string (x.Id)) renderItem }
         </div>
     """
+```
+
+``` shell
+dotnet femto install Fable.Lit.Elmish
+```
+
+``` fsharp
+module App
+
+open System
+
+type Todo = {
+    Id: int
+    Title: string
+    Description: string
+    CreatedAt: DateTime
+}
+
+open Thoth.Fetch
+
+module Api = 
+    let url = "https://[XXX].mockapi.io/todo"
+
+    let fetchAll () = promise {
+        return! Fetch.get<_, Todo list>(url, caseStrategy = Thoth.Json.CaseStrategy.CamelCase)
+    }
+
+module Elmish =
+    open Elmish
+    open Lit
+
+    type App = {
+        Todos: Todo list
+    }
+
+    type Msg = 
+        | Refresh of Todo list
+
+    let init () = { Todos = [] }, Cmd.none
+
+    let update msg model = 
+        match msg with 
+        | Refresh todos -> { model with Todos = todos }, Cmd.none
+
+    [<HookComponent>]
+    let Todos todos =
+        let renderItem (todo: Todo) = 
+            html $"""
+                <div>
+                    <h2>{todo.Title}</h2>
+                    <p>{todo.Description}</p>
+                </div>"""
+
+        html $"""
+            <h1>Todos</h1>
+            <div>
+                { todos |> Lit.mapUnique (fun x -> string (x.Id)) renderItem }
+            </div>
+        """
+
+open Elmish
+open Lit
+open Lit.Elmish
+
+[<LitElement("demo-app")>]
+let App() = 
+    let _ = LitElement.init(fun cfg -> ())
+    
+    let model, dispatch =
+        Hook.useElmish(init, update)
+
+    let refreshTodos () = promise {
+        let! todos = Api.fetchAll ()
+        dispatch (Refresh todos) 
+    }
+
+    Hook.useEffectOnce(fun () -> Promise.start(refreshTodos()))
+    
+    html $"""{Todos (model.Todos)}"""
 ```
 
 ### Sources
