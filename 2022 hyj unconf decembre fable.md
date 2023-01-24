@@ -230,7 +230,7 @@ let Item() =
             html $"""<li>{item}</li>"""
     | None -> Lit.nothing
 
-[<LitElement("demo-item")>]
+[<LitElement("demo-app")>]
 let App() = 
     let _ = LitElement.init(fun cfg -> ())
 
@@ -247,7 +247,54 @@ let App() =
 ### Demo
 
 ``` fsharp
-TODO
+module App
+
+open System
+
+type Todo = {
+    Id: int
+    Title: string
+    Description: string
+    CreatedAt: DateTime
+}
+
+open Thoth.Fetch
+
+module Api = 
+    let url = "https://[XXX].mockapi.io/todo"
+
+    let fetchAll () = promise {
+        return! Fetch.get<_, Todo list>(url, caseStrategy = Thoth.Json.CaseStrategy.CamelCase)
+    }
+
+open Lit
+
+[<LitElement("demo-app")>]
+let App() = 
+    let _ = LitElement.init(fun cfg -> ())
+
+    let todos, setTodos = Hook.useState<Todo list> []
+
+    let refreshTodos () = promise {
+        let! todos = Api.fetchAll ()
+        setTodos todos
+    }
+
+    Hook.useEffectOnce(fun () -> Promise.start(refreshTodos()))
+
+    let renderItem (todo: Todo) = 
+        html $"""
+            <div>
+                <h2>{todo.Title}</h2>
+                <p>{todo.Description}</p>
+            </div>"""
+
+    html $"""
+        <h1>Todos</h1>
+        <div>
+            { todos |> Lit.mapUnique (fun x -> string (x.Id)) renderItem }
+        </div>
+    """
 ```
 
 ### Sources
