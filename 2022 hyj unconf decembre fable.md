@@ -165,7 +165,7 @@ Modifier index.html :
 |------------------|---------------------------------------------------------|
 | Event listeners  | TODO                                                    |
 | Attribut booléen | TODO                                                    |
-| Propiétés        | TODO                                                    |
+| Propriétés        | TODO                                                    |
 
 #### Les hooks
 
