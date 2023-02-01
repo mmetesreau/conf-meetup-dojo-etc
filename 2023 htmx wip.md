@@ -52,7 +52,7 @@ module Views =
             $"""
                 <html>
                     <head>
-                        <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+                        <script src="https://unpkg.com/hyperscript.org@0.9.7"></script>
                         <script src="https://unpkg.com/htmx.org@1.8.5"></script>
                     </head>
                     <body>
@@ -69,7 +69,7 @@ module Views =
                     {todo.Title}
                 </label>
                 <input type="checkbox" {if todo.Done then "checked" else ""} hx-patch="/todos/{todo.Id}" hx-target="#todo-{todo.Id}" hx-swap="outerHTML" />
-                <button hx-delete="/todos/{todo.Id}" x-data @htmx:after-on-load.camel="$event.target.parentElement.remove()">Delete</button>
+                <button hx-delete="/todos/{todo.Id}" _="on htmx:afterOnLoad remove #todo-{todo.Id}">Delete</button>
             </div>
         """
 
@@ -80,9 +80,9 @@ module Views =
         html
             $"""
                     <h1>Todos</h1>
-                    <form hx-target="#todo-list" hx-post="/todos" hx-swap="afterbegin" x-data @htmx:after-on-load.camel="$event.target.reset()" >
+                    <form hx-target="#todo-list" hx-post="/todos" hx-swap="afterbegin" _="on htmx:afterOnLoad set #titleForm.value to ''" >
                         <div>
-                            <input type="text" name="title" />
+                            <input id='titleForm' type="text" name="title" />
                             <button>Add</button>
                         </div>
                     </form>
@@ -94,7 +94,7 @@ module Views =
     let editTodo (todo: Todo) =
         html
             $"""
-                <form hx-post="/todos/update/{todo.Id}" hx-swap="outerHTML">
+                <form hx-post="/todos/update/{todo.Id}" hx-swap="outerHTML" _="on htmx:afterOnLoad()>
                     <input type="text" name="title" value="{todo.Title}" />
                     <button>Save</button>
                 </form>
@@ -178,18 +178,20 @@ module Handlers =
         }
 
 open Saturn
+open Handlers
 
 let routes =
     router {
-        get "/" Handlers.allTodos
-        post "/todos" Handlers.addTodo
-        getf "/todos/edit/%O" Handlers.editTodo
-        postf "/todos/update/%O" Handlers.updateTodo
-        patchf "/todos/%O" Handlers.toggleTodo
-        deletef "/todos/%O" Handlers.deleteTodo
+        get "/" allTodos
+        post "/todos" addTodo
+        getf "/todos/edit/%O" editTodo
+        postf "/todos/update/%O" updateTodo
+        patchf "/todos/%O" toggleTodo
+        deletef "/todos/%O" deleteTodo
     }
 
 let app = application { use_router routes }
 
 run app
+
 ```
