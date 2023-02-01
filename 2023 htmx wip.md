@@ -30,7 +30,19 @@ open System
 
 type Todo = { Id: Guid; Title: string; Done: bool }
 
-let mutable todos = Map<Guid, Todo> []
+module Infra =
+    let mutable private todos = Map<Guid, Todo> []
+
+    let getAll () = todos |> Map.values |> List.ofSeq
+
+    let getById id = Map.tryFind id todos
+
+    let save todo =
+        todos <- Map.add todo.Id todo todos
+        todo
+        
+    let delete id =
+        todos <- Map.remove id todos
 
 module Views =
     let private html str = str
@@ -40,7 +52,6 @@ module Views =
             $"""
                 <html>
                     <head>
-                        <script src="https://cdn.tailwindcss.com"></script>
                         <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
                         <script src="https://unpkg.com/htmx.org@1.8.5"></script>
                     </head>
@@ -53,37 +64,37 @@ module Views =
     let todoItem (todo: Todo) =
         html
             $"""
-            <li class="flex" id="todo-{todo.Id}">
-                <label class="w-full" style="{if todo.Done then "text-decoration:line-through;" else ""}" hx-get="/todos/edit/{todo.Id}" hx-target="#todo-{todo.Id}" hx-swap="outerHTML">
+            <div id="todo-{todo.Id}">
+                <label style="{if todo.Done then "text-decoration:line-through;" else ""}" hx-get="/todos/edit/{todo.Id}" hx-target="#todo-{todo.Id}" hx-swap="outerHTML">
                     {todo.Title}
                 </label>
                 <input type="checkbox" {if todo.Done then "checked" else ""} hx-patch="/todos/{todo.Id}" hx-target="#todo-{todo.Id}" hx-swap="outerHTML" />
-            </li>
+                <button hx-delete="/todos/{todo.Id}" x-data @htmx:after-on-load.camel="$event.target.parentElement.remove()">Delete</button>
+            </div>
         """
 
     let todoList (todos: Todo list) =
         todos |> List.map todoItem |> String.concat ""
 
     let index (todos: Todo list) =
-        $"""
-            <div class="container mx-auto">
-                <h1 class="text-2xl mt-4">Todos</h1>
-                <form x-data @htmx:after-on-load.camel="$event.target.reset()" hx-target="#todo-list" hx-post="/todos" hx-swap="afterbegin">
-                    <div class="flex mt-4">
-                        <input class="shadow appearance-none border rounded w-full py-2 px-3 mr-4" type="text" name="title" />
-                        <button class="flex-no-shrink p-2 border-2 rounded">Add</button>
+        html
+            $"""
+                    <h1>Todos</h1>
+                    <form hx-target="#todo-list" hx-post="/todos" hx-swap="afterbegin" x-data @htmx:after-on-load.camel="$event.target.reset()" >
+                        <div>
+                            <input type="text" name="title" />
+                            <button>Add</button>
+                        </div>
+                    </form>
+                    <div id="todo-list">
+                        {todos |> todoList}
                     </div>
-                </form>
-                <ul id="todo-list">
-                    {todos |> todoList}
-                </ul>
-            </div>
-        """
+            """
 
     let editTodo (todo: Todo) =
         html
             $"""
-                <form hx-post="/todos/update/{todo.Id}">
+                <form hx-post="/todos/update/{todo.Id}" hx-swap="outerHTML">
                     <input type="text" name="title" value="{todo.Title}" />
                     <button>Save</button>
                 </form>
@@ -98,31 +109,22 @@ module Handlers =
 
     let allTodos next (ctx: HttpContext) =
         task {
-            let view = todos
-                       |> Map.values
-                       |> List.ofSeq
-                       |> index
-                       |> renderHtmlView
+            let view =
+                Infra.getAll ()
+                |> index
+                |> renderHtmlView
 
             return! view next ctx
         }
 
     let addTodo next (ctx: HttpContext) =
         task {
-            let title =
-                ctx.GetFormValue("title")
-                    |> Option.defaultValue "A Title"
+            let title = ctx.GetFormValue("title") |> Option.defaultValue "A Title"
 
-            let todo =
-                { Id = Guid.NewGuid()
-                  Title = title
-                  Done = false }
-                
-            todos <- Map.add todo.Id todo todos
-
-            let view = todo
-                       |> todoItem
-                       |> renderHtmlView
+            let view =
+                Infra.save { Id = Guid.NewGuid(); Title = title; Done = false }
+                |> todoItem
+                |> renderHtmlView
 
             return! view next ctx
         }
@@ -130,10 +132,12 @@ module Handlers =
     let editTodo (id: Guid) next (ctx: HttpContext) =
         task {
             let view =
-                match Map.tryFind id todos with
-                | Some todo ->
-                    todo |> editTodo |> renderHtmlView
+                match Infra.getById id with
                 | None -> failwith ""
+                | Some todo ->
+                    todo
+                    |> editTodo
+                    |> renderHtmlView
 
             return! view next ctx
         }
@@ -143,29 +147,34 @@ module Handlers =
             let title = ctx.GetFormValue("title") |> Option.defaultValue "A Title"
 
             let view =
-                match Map.tryFind id todos with
-                | Some todo ->
-                    let todo' = { todo with Title = title }
-                    todos <- Map.add todo.Id todo' todos
-
-                    todo' |> todoItem |> renderHtmlView
+                match Infra.getById id with
                 | None -> failwith ""
+                | Some todo ->
+                    Infra.save { todo with Title = title }
+                    |> todoItem
+                    |> renderHtmlView
 
             return! view next ctx
         }
-        
+
     let toggleTodo (id: Guid) next (ctx: HttpContext) =
         task {
             let view =
-                match Map.tryFind id todos with
-                | Some todo ->
-                    let todo' = { todo with Done = not todo.Done }
-                    todos <- Map.add todo.Id todo' todos
-
-                    todo' |> todoItem |> renderHtmlView
+                match Infra.getById id with
                 | None -> failwith ""
-
+                | Some todo ->
+                    Infra.save { todo with Done = not todo.Done }
+                    |> todoItem
+                    |> renderHtmlView
+                    
             return! view next ctx
+        }
+        
+    let deleteTodo (id: Guid) next (ctx: HttpContext) =
+        task {
+            Infra.delete id
+           
+            return! ( renderHtmlView "") next ctx
         }
 
 open Saturn
@@ -177,10 +186,10 @@ let routes =
         getf "/todos/edit/%O" Handlers.editTodo
         postf "/todos/update/%O" Handlers.updateTodo
         patchf "/todos/%O" Handlers.toggleTodo
+        deletef "/todos/%O" Handlers.deleteTodo
     }
 
 let app = application { use_router routes }
 
 run app
-
 ```
